@@ -302,16 +302,14 @@ onMounted(async () => {
     const el = chartEl.value?.$el ?? chartEl.value ?? (inst?.proxy?.$refs as any)?.chartEl;
     if (!el) { (window as any).__mountErr = 'el is null'; return; }
     const htmlEl = el as HTMLElement;
-    // 强制设置尺寸，不依赖 CSS 加载时序
-    htmlEl.style.width = htmlEl.style.width || '100%';
-    htmlEl.style.height = '560px';
-    htmlEl.style.display = 'block';
-    htmlEl.style.overflow = 'visible';
-    // 等一帧让布局生效
-    await new Promise(r => requestAnimationFrame(r));
-    const w = htmlEl.clientWidth > 10 ? htmlEl.clientWidth : 380;
-    const h = 500;
-    chart = echarts.init(htmlEl, null, { width: w, height: h });
+    // 等待 CSS 布局给出正确高度（不写死，让 flex 自适应竖屏/横屏）
+    for (let i = 0; i < 30; i++) {
+      if (htmlEl.clientHeight > 10) break;
+      await new Promise(r => setTimeout(r, 100));
+    }
+    const initW = htmlEl.clientWidth > 10 ? htmlEl.clientWidth : 380;
+    const initH = htmlEl.clientHeight > 10 ? htmlEl.clientHeight : 500;
+    chart = echarts.init(htmlEl, null, { width: initW, height: initH });
     (window as any).__chart = chart;
     applyOption(false);
     bindHover();
