@@ -360,13 +360,13 @@ onMounted(async () => {
     const el = chartEl.value?.$el ?? chartEl.value ?? (inst?.proxy?.$refs as any)?.chartEl;
     if (!el) { (window as any).__mountErr = 'el is null'; return; }
     const htmlEl = el as HTMLElement;
-    // 等待 CSS 布局给出正确高度（不写死，让 flex 自适应竖屏/横屏）
+    // 等待 CSS 布局给出正确高度（.kline-el height:100% 跟随父容器 flex/固定高）
     for (let i = 0; i < 30; i++) {
       if (htmlEl.clientHeight > 10) break;
       await new Promise(r => setTimeout(r, 100));
     }
     const initW = htmlEl.clientWidth > 10 ? htmlEl.clientWidth : 380;
-    const initH = htmlEl.clientHeight > 10 ? htmlEl.clientHeight : 500;
+    const initH = htmlEl.clientHeight > 10 ? htmlEl.clientHeight : 480;
     chart = echarts.init(htmlEl, null, { width: initW, height: initH });
     (window as any).__chart = chart;
     applyOption(false);
@@ -426,6 +426,10 @@ defineExpose({ resize, zoomIn, zoomOut, panLeft, panRight, resetWindow });
   width: 100%;
   height: 100%;
   position: relative;
+}
+.kline-el {
+  width: 100%;
+  height: 100%;
 }
 /* 顶部 OHLC 信息栏 */
 .ohlc-bar {

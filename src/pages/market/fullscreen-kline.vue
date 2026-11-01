@@ -11,6 +11,12 @@
       <view class="mode-toggle" @click="toggleMode">{{ isLandscape ? '⤢ 竖屏' : '⤢ 横屏' }}</view>
     </view>
 
+    <!-- 量化演示条（与主页共用 CL_QUANT_DEMO 存储） -->
+    <view v-if="quantDemo" class="quant-bar" @click="quantVisible = !quantVisible">
+      <text class="quant-text">🎯 {{ quantDemo.name }}（{{ quantVisible ? '演示中' : '已隐藏' }}）· 交易 {{ quantDemo.stats.trades }} 次 · 胜率 {{ quantDemo.stats.winRate }}%</text>
+      <text class="quant-op">{{ quantVisible ? '隐藏' : '显示' }}</text>
+    </view>
+
     <!-- 周期 tabs -->
     <view class="period-row">
       <view
@@ -37,6 +43,7 @@
         :show-ma="prefs.showMa"
         :currency-suffix="cur.suffix"
         :currency-axis="cur.axis"
+        :quant-marks="quantDemo && quantVisible ? quantDemo.marks : undefined"
       />
       <view v-if="loading" class="chart-loading">加载中…</view>
     </view>
@@ -46,7 +53,7 @@
 <script setup lang="ts">
 /** 全屏K线页：竖屏/横屏（参考原站横屏全屏）双模式，无 tabBar 专注看图 */
 import { ref, onMounted } from 'vue';
-import { onLoad } from '@dcloudio/uni-app';
+import { onLoad, onUnload } from '@dcloudio/uni-app';
 import KLineChart from '../../components/KLineChart.vue';
 import { fetchKline, fetchReal, PERIOD_LABELS, PERIOD_ORDER, toSymbol } from '../../api/cnfin';
 import type { KLine, Period, RealQuote } from '../../api/cnfin';
@@ -70,6 +77,35 @@ const loading = ref(false);
 const isLandscape = ref(true);
 
 const cur = computed(() => getCurrencyInfo(toSymbol(code.value)));
+
+/* ---------------- 量化演示叠加（与主页共用存储） ---------------- */
+interface QuantDemo {
+  name: string;
+  marks: { day: string; price: number; dir: 'B' | 'S' }[];
+  stats: { trades: number; wins: number; winRate: number; pnlPct: number };
+}
+const quantDemo = ref<QuantDemo | null>(null);
+const quantVisible = ref(true);
+const loadQuantDemo = () => {
+  try { quantDemo.value = uni.getStorageSync('CL_QUANT_DEMO') || null; } catch { quantDemo.value = null; }
+};
+const QUANT_THEORY: Record<string, string> = {
+  ma_cross: '双均线交叉（趋势跟踪）：MA5 上穿 MA20 金叉买入，下穿死叉卖出。震荡市会反复止损。',
+  boll: '布林带回归（均值回归）：跌破下轨超跌买入，回到中轨卖出。单边下跌需硬止损。',
+  rsi: 'RSI 动量修复：RSI(14) 从 30 下方回升穿 30 买入，从 70 上方回落穿 70 卖出。强趋势中会钝化。',
+  turtle: '海龟突破（唐奇安通道）：收盘价突破前 20 日最高价买入，跌破前 10 日最低价离场。注意假突破。',
+};
+const onQuantSig = (sig: { day: string; price: number; dir: 'B' | 'S' } | null) => {
+  if (!sig) return;
+  const key = (quantDemo.value as any)?.key as string | undefined;
+  const theory = (key && QUANT_THEORY[key]) || '策略信号说明见「量化」Tab。';
+  uni.showModal({
+    title: `量化${sig.dir === 'B' ? '买入' : '卖出'}信号${quantDemo.value ? ' · ' + quantDemo.value.name : ''}`,
+    content: `${sig.day}  @ ${Math.round(sig.price * 100) / 100}\n${theory}\n回测仅供学习，不构成投资建议。`,
+    showCancel: false,
+    confirmText: '知道了',
+  });
+};
 
 const load = async () => {
   loading.value = true;
@@ -95,6 +131,7 @@ const switchPeriod = (p: Period) => {
   load();
 };
 const goBack = () => uni.navigateBack();
+onUnload(() => { uni.$off('cl-quant', onQuantSig); });
 const toggleMode = async () => {
   try {
     if (!isLandscape.value) {
@@ -121,6 +158,8 @@ onLoad((opts: any) => {
   if (opts?.code) code.value = opts.code;
   if (opts?.name) name.value = decodeURIComponent(opts.name);
   if (opts?.period && periods.includes(opts.period)) period.value = opts.period;
+  loadQuantDemo();
+  uni.$on('cl-quant', onQuantSig);
   if (opts?.mode !== 'v') {
     // 默认横屏：请求全屏 + 锁定方向
     const el = document.documentElement;
@@ -148,6 +187,25 @@ onLoad((opts: any) => {
   padding-top: env(safe-area-inset-top);
 }
 /* 横屏模式由 Fullscreen API + orientation lock 控制 */
+.quant-bar {
+  display: flex;
+  align-items: center;
+  gap: 12rpx;
+  margin: 6rpx 20rpx;
+  padding: 8rpx 16rpx;
+  background: rgba(142, 68, 173, 0.08);
+  border: 1rpx solid rgba(142, 68, 173, 0.35);
+  border-radius: 8rpx;
+}
+.quant-text {
+  flex: 1;
+  font-size: 22rpx;
+  color: #8e44ad;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+.quant-op { font-size: 22rpx; color: #1890ff; }
 .quote-head {
   display: flex;
   align-items: baseline;
