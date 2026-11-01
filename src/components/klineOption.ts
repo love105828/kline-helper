@@ -331,7 +331,7 @@ export function buildOption(
       {
         type: 'slider', xAxisIndex: xAxis.map((_, i) => i), start: zoom.start ?? startPct, end: zoom.end ?? 100,
         // 底部预留标签空间：滑条下缘的时间范围文字不再被裁切
-        bottom: 16, height: 14, borderColor: '#e9ecef', backgroundColor: '#fafbfc',
+        bottom: 12, height: 22, borderColor: '#e9ecef', backgroundColor: '#fafbfc',
         fillerColor: 'rgba(24,144,255,0.14)',
         handleIcon: 'path://M-4,0L4,0 M0,-4L0,4', handleSize: '60%',
         handleStyle: { color: '#fff', borderColor: '#adb5bd' },

@@ -357,7 +357,8 @@ defineExpose({ resize, zoomIn, zoomOut, panLeft, panRight, resetWindow });
 </script>
 
 <style scoped>
-.kline-wrap,
+/* 只在图表和画布上禁止浏览器默认触摸（让 ECharts 接管） */
+/* 外层 .kline-wrap 不设，保持页面可以滚动 */
 .kline-el,
 .kline-el canvas {
   touch-action: none;
