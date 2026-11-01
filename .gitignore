@@ -1,0 +1,17 @@
+node_modules
+dist
+dev
+.zcode
+.DS_Store
+*.log
+*.local
+.tmp-*
+Thumbs.db
+
+# Editor
+.idea
+*.suo
+*.ntvs*
+*.njsproj
+*.sln
+*.sw?

@@ -1,0 +1,101 @@
+{
+	"pages": [
+		{
+			"path": "pages/market/index",
+			"style": {
+				"navigationBarTitleText": "K线看图助手"
+			}
+		},
+		{
+			"path": "pages/market/fullscreen-kline",
+			"style": {
+				"navigationBarTitleText": "全屏K线",
+				"navigationStyle": "custom"
+			}
+		},
+		{
+			"path": "pages/watchlist/index",
+			"style": {
+				"navigationBarTitleText": "收藏"
+			}
+		},
+		{
+			"path": "pages/learn/index",
+			"style": {
+				"navigationBarTitleText": "缠论知识"
+			}
+		},
+		{
+			"path": "pages/learn/quiz",
+			"style": {
+				"navigationBarTitleText": "缠论测试"
+			}
+		},
+		{
+			"path": "pages/strategy/index",
+			"style": {
+				"navigationBarTitleText": "多元策略"
+			}
+		},
+		{
+			"path": "pages/quant/index",
+			"style": {
+				"navigationBarTitleText": "量化策略"
+			}
+		},
+		{
+			"path": "pages/ai/index",
+			"style": {
+				"navigationBarTitleText": "AI 助手"
+			}
+		}
+	],
+	"tabBar": {
+		"color": "#999999",
+		"selectedColor": "#E74C3C",
+		"backgroundColor": "#FFFFFF",
+		"borderStyle": "black",
+		"height": "50px",
+		"fontSize": "10px",
+		"iconWidth": "24px",
+		"spacing": "3px",
+		"list": [
+			{
+				"pagePath": "pages/market/index",
+				"text": "行情",
+				"iconPath": "static/tabbar/market.png",
+				"selectedIconPath": "static/tabbar/market-active.png"
+			},
+			{
+				"pagePath": "pages/watchlist/index",
+				"text": "收藏",
+				"iconPath": "static/tabbar/watchlist.png",
+				"selectedIconPath": "static/tabbar/watchlist-active.png"
+			},
+			{
+				"pagePath": "pages/learn/index",
+				"text": "学习",
+				"iconPath": "static/tabbar/learn.png",
+				"selectedIconPath": "static/tabbar/learn-active.png"
+			},
+			{
+				"pagePath": "pages/strategy/index",
+				"text": "策略",
+				"iconPath": "static/tabbar/strategy.png",
+				"selectedIconPath": "static/tabbar/strategy-active.png"
+			},
+			{
+				"pagePath": "pages/quant/index",
+				"text": "量化",
+				"iconPath": "static/tabbar/quant.png",
+				"selectedIconPath": "static/tabbar/quant-active.png"
+			}
+		]
+	},
+	"globalStyle": {
+		"navigationBarTextStyle": "black",
+		"navigationBarTitleText": "K线看图助手",
+		"navigationBarBackgroundColor": "#FFFFFF",
+		"backgroundColor": "#F5F5F5"
+	}
+}
