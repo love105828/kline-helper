@@ -184,6 +184,64 @@ function bindHover() {
   zr.on('dblclick', resetWindow);
 }
 
+/** 手机触摸：不依赖 zrender 事件，直接在容器上监听原生触摸 */
+function bindMobileTouch(el: HTMLElement) {
+  let lastX = 0, lastY = 0, lastDist = 0, touching = false;
+  const getPos = (t: Touch) => {
+    const rect = el.getBoundingClientRect();
+    return { x: t.clientX - rect.left, y: t.clientY - rect.top };
+  };
+  el.addEventListener('touchstart', (ev: TouchEvent) => {
+    if (ev.touches.length === 1) {
+      touching = true;
+      const p = getPos(ev.touches[0]);
+      lastX = p.x; lastY = p.y;
+      // 显示十字光标
+      try {
+        const idx = Math.round((chart as any).convertFromPixel({ gridIndex: 0 }, [p.x, p.y])[0]);
+        if (idx >= 0 && idx < props.klines.length) hoverIdx.value = idx;
+      } catch { /* ignore */ }
+    } else if (ev.touches.length === 2) {
+      const dx = ev.touches[0].clientX - ev.touches[1].clientX;
+      const dy = ev.touches[0].clientY - ev.touches[1].clientY;
+      lastDist = Math.sqrt(dx * dx + dy * dy);
+    }
+  }, { passive: true });
+  el.addEventListener('touchmove', (ev: TouchEvent) => {
+    if (ev.touches.length === 1 && touching) {
+      const p = getPos(ev.touches[0]);
+      // 更新十字光标
+      try {
+        const idx = Math.round((chart as any).convertFromPixel({ gridIndex: 0 }, [p.x, p.y])[0]);
+        if (idx >= 0 && idx < props.klines.length) hoverIdx.value = idx;
+      } catch { /* ignore */ }
+      // 单指平移
+      const dx = p.x - lastX;
+      if (Math.abs(dx) > 2) {
+        panByPixels(dx);
+        lastX = p.x;
+      }
+    } else if (ev.touches.length === 2) {
+      // 双指缩放
+      const dx = ev.touches[0].clientX - ev.touches[1].clientX;
+      const dy = ev.touches[0].clientY - ev.touches[1].clientY;
+      const dist = Math.sqrt(dx * dx + dy * dy);
+      if (lastDist > 0 && Math.abs(dist - lastDist) > 5) {
+        zoomByPinch(dist / lastDist);
+        lastDist = dist;
+      }
+    }
+  }, { passive: true });
+  el.addEventListener('touchend', () => {
+    touching = false;
+    lastDist = 0;
+  });
+}
+
+function zoomByPinch(ratio: number) {
+  shiftWindow(1 / ratio, 0);
+}
+
 /* ---- 边界提示：拖/翻到数据尽头时告知用户，避免"无声卡住" ---- */
 let lastBoundaryToast = 0;
 function boundaryToast(edge: 'oldest' | 'newest') {
@@ -321,6 +379,7 @@ onMounted(async () => {
       ro.observe(htmlEl);
     }
     window.addEventListener('resize', resize);
+    bindMobileTouch(htmlEl);
   } catch (e: any) {
     (window as any).__mountErr = (e && e.stack ? String(e.stack).slice(0, 300) : String(e));
   }
