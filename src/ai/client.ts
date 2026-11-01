@@ -145,11 +145,10 @@ async function chatAnthropicStream(opts: ChatOptions): Promise<string> {
     },
     body: JSON.stringify({
       model: opts.model,
-      max_tokens: 4096,
+      max_tokens: opts.maxTokens ?? 4096,
       system: system || undefined,
       messages: msgs,
       temperature: opts.temperature ?? 0.7,
-      max_tokens: opts.maxTokens ?? 2048,
       stream: true,
     }),
   });
