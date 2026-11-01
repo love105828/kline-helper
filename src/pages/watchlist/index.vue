@@ -107,6 +107,8 @@ onShow(refresh);
 <style scoped>
 .page {
   min-height: 100vh;
+  height: 100dvh;
+  min-height: 100dvh;
   background-color: #f5f6fa;
   display: flex;
   flex-direction: column;

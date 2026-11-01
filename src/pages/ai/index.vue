@@ -403,6 +403,8 @@ onShow(() => {
 <style scoped>
 .page {
   min-height: 100vh;
+  height: 100dvh;
+  min-height: 100dvh;
   background-color: #f5f6fa;
   padding: 10px 10px 20px;
   display: flex;

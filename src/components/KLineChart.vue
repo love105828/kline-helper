@@ -353,6 +353,7 @@ defineExpose({ resize, zoomIn, zoomOut, panLeft, panRight, resetWindow });
   width: 100%;
   height: 100%;
   position: relative;
+  touch-action: none;
 }
 .kline-el {
   width: 100%;

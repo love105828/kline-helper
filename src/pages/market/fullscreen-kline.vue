@@ -1,5 +1,5 @@
 <template>
-  <view class="page" :class="{ landscape: isLandscape }">
+  <view class="page">
     <!-- 报价头 -->
     <view class="quote-head" v-if="real">
       <text class="quote-name">{{ name }}</text>
@@ -95,13 +95,44 @@ const switchPeriod = (p: Period) => {
   load();
 };
 const goBack = () => uni.navigateBack();
-const toggleMode = () => { isLandscape.value = !isLandscape.value; };
+const toggleMode = async () => {
+  try {
+    if (!isLandscape.value) {
+      // 进入横屏：请求全屏 + 锁定横屏
+      const el = document.documentElement;
+      if (el.requestFullscreen) await el.requestFullscreen();
+      if (screen.orientation && screen.orientation.lock) {
+        await screen.orientation.lock('landscape');
+      }
+      isLandscape.value = true;
+    } else {
+      // 退出横屏
+      if (screen.orientation && screen.orientation.unlock) screen.orientation.unlock();
+      if (document.exitFullscreen) await document.exitFullscreen();
+      isLandscape.value = false;
+    }
+  } catch {
+    // 浏览器不支持 orientation lock 时仅切换状态
+    isLandscape.value = !isLandscape.value;
+  }
+};
 
 onLoad((opts: any) => {
   if (opts?.code) code.value = opts.code;
   if (opts?.name) name.value = decodeURIComponent(opts.name);
   if (opts?.period && periods.includes(opts.period)) period.value = opts.period;
-  isLandscape.value = opts?.mode !== 'v'; // ⛶ 默认进入横屏模式
+  if (opts?.mode !== 'v') {
+    // 默认横屏：请求全屏 + 锁定方向
+    const el = document.documentElement;
+    if (el.requestFullscreen) {
+      el.requestFullscreen().then(() => {
+        if (screen.orientation && screen.orientation.lock) {
+          screen.orientation.lock('landscape').catch(() => {});
+        }
+      }).catch(() => {});
+    }
+    isLandscape.value = true;
+  }
   load();
 });
 </script>
@@ -111,21 +142,12 @@ onLoad((opts: any) => {
   display: flex;
   flex-direction: column;
   height: 100vh;
+  height: 100dvh;
   background: #ffffff;
   overflow: hidden;
   padding-top: env(safe-area-inset-top);
 }
-/* 横屏模式：容器旋转 90° 铺满竖屏视口（参考原站横屏全屏K线） */
-.page.landscape {
-  position: fixed;
-  top: 0;
-  left: 100vw;
-  width: 100vh;
-  height: 100vw;
-  transform: rotate(90deg);
-  transform-origin: left top;
-  padding-top: 0;
-}
+/* 横屏模式由 Fullscreen API + orientation lock 控制 */
 .quote-head {
   display: flex;
   align-items: baseline;

@@ -953,6 +953,8 @@ onMounted(load);
 /* ============ 页面：浅灰底卡片流（对照原站 page-container） ============ */
 .page-container {
   min-height: 100vh;
+  height: 100dvh;
+  min-height: 100dvh;
   background-color: #f5f6fa;
   display: flex;
   flex-direction: column;
@@ -1161,10 +1163,14 @@ onMounted(load);
 .ma-btn {
   background-color: #e9ecef;
   border: 1px solid #dee2e6;
-  padding: 4px 10px;
-  margin-right: 6px;
+  padding: 6px 8px 6px 14px;
+  margin-right: 8px;
   margin-bottom: 2px;
   border-radius: 4px;
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  gap: 10px;
 }
 .ma-btn.active { background-color: #1890ff; border-color: #1890ff; }
 .ma-btn-text { color: #495057; font-weight: 500; font-size: 12px; }
@@ -1393,14 +1399,18 @@ onMounted(load);
 .ma-btn-text { color: #495057; font-weight: 500; font-size: 12px; }
 .ma-btn.active .ma-btn-text { color: #fff; }
 .ma-info {
-  font-size: 10px;
-  margin-left: 4px;
-  padding: 0 4px;
-  border-radius: 8px;
+  font-size: 11px;
+  width: 22px;
+  height: 22px;
+  line-height: 22px;
+  text-align: center;
+  border-radius: 11px;
   color: #1890ff;
-  background: rgba(255, 255, 255, 0.7);
+  background: rgba(255, 255, 255, 0.8);
+  border: 1px solid #1890ff;
+  flex-shrink: 0;
 }
-.ma-btn.active .ma-info { color: #fff; background: rgba(255, 255, 255, 0.25); }
+.ma-btn.active .ma-info { color: #fff; background: rgba(255, 255, 255, 0.3); border-color: rgba(255,255,255,0.5); }
 
 /* ============ 缠论设置弹层（小号居中弹窗，对照原站） ============ */
 .mask {
