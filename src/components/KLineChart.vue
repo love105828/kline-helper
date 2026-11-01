@@ -292,36 +292,38 @@ function onMpInited(instance: any) {
 }
 
 onMounted(async () => {
-  await nextTick();
   // #ifdef H5
   try {
     const el = chartEl.value?.$el ?? chartEl.value ?? (inst?.proxy?.$refs as any)?.chartEl;
-    if (el) {
-      chart = echarts.init(el as HTMLElement);
-      (window as any).__chart = chart; // 调试钩子
-      applyOption(false);
-      bindHover();
-      // 触摸设备由 zrender 原生处理手势，桌面才启用鼠标拖拽
-      if (!('ontouchstart' in window)) {
-        bindDrag(el as HTMLElement);
-      }
-      if (typeof ResizeObserver !== 'undefined') {
-        ro = new ResizeObserver(() => chart?.resize());
-        ro.observe(el as HTMLElement);
-      }
-      window.addEventListener('resize', resize);
-    } else {
-      (window as any).__mountErr = 'el is null';
+    if (!el) { (window as any).__mountErr = 'el is null'; return; }
+    const htmlEl = el as HTMLElement;
+    // 强制设置尺寸，不依赖 CSS 加载时序
+    htmlEl.style.width = htmlEl.style.width || '100%';
+    htmlEl.style.height = '560px';
+    htmlEl.style.display = 'block';
+    htmlEl.style.overflow = 'visible';
+    // 等一帧让布局生效
+    await new Promise(r => requestAnimationFrame(r));
+    const w = htmlEl.clientWidth > 10 ? htmlEl.clientWidth : 380;
+    const h = 500;
+    chart = echarts.init(htmlEl, null, { width: w, height: h });
+    (window as any).__chart = chart;
+    applyOption(false);
+    bindHover();
+    if (!('ontouchstart' in window)) {
+      bindDrag(htmlEl);
     }
+    if (typeof ResizeObserver !== 'undefined') {
+      ro = new ResizeObserver(() => chart?.resize());
+      ro.observe(htmlEl);
+    }
+    window.addEventListener('resize', resize);
   } catch (e: any) {
-    (window as any).__mountErr = (e && e.stack ? String(e.stack).slice(0, 500) : String(e));
+    (window as any).__mountErr = (e && e.stack ? String(e.stack).slice(0, 300) : String(e));
   }
   // #endif
-  uni.$on('cl-zoom', onZoom);
-  uni.$on('cl-pan', onPan);
 });
 
-// 数据变化（换标的/换周期）→ 重置默认窗口；开关变化 → 保留当前缩放位置
 watch(
   () => [props.klines, props.draw, props.currencySuffix, props.currencyAxis, props.tdxLines, props.quantMarks],
   () => nextTick(() => { resize(); applyOption(false); }),
