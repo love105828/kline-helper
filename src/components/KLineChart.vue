@@ -301,7 +301,10 @@ onMounted(async () => {
       (window as any).__chart = chart; // 调试钩子
       applyOption(false);
       bindHover();
-      bindDrag(el as HTMLElement);
+      // 触摸设备由 zrender 原生处理手势，桌面才启用鼠标拖拽
+      if (!('ontouchstart' in window)) {
+        bindDrag(el as HTMLElement);
+      }
       if (typeof ResizeObserver !== 'undefined') {
         ro = new ResizeObserver(() => chart?.resize());
         ro.observe(el as HTMLElement);
@@ -349,15 +352,15 @@ defineExpose({ resize, zoomIn, zoomOut, panLeft, panRight, resetWindow });
 </script>
 
 <style scoped>
+.kline-wrap,
+.kline-el,
+.kline-el canvas {
+  touch-action: none;
+}
 .kline-wrap {
   width: 100%;
   height: 100%;
   position: relative;
-  touch-action: none;
-}
-.kline-el {
-  width: 100%;
-  height: 100%;
 }
 /* 顶部 OHLC 信息栏 */
 .ohlc-bar {

@@ -229,7 +229,7 @@ export async function fetchRealEastmoney(code: string): Promise<RealQuote> {
           open: emNum(d.f46, p),
           preclose: emNum(d.f60, p),
           change: emNum(d.f169, p),
-          changeRate: Math.round(emNum(d.f170, 0) * 100) / 100,
+          changeRate: emNum(d.f170, 2),
         };
       } catch (e: any) {
         lastErr = e;
