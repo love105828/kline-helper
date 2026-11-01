@@ -152,13 +152,20 @@ function bindHover() {
   const g = getInst();
   if (!g) return;
   const zr = (g as any).getZr();
-  zr.on('mousemove', (e: any) => {
+  const updateHover = (e: any) => {
     try {
-      const idx = Math.round((g as any).convertFromPixel({ gridIndex: 0 }, [e.offsetX, e.offsetY])[0]);
+      const x = e.offsetX ?? e.zrX;
+      const y = e.offsetY ?? e.zrY;
+      if (x === undefined || y === undefined) return;
+      const idx = Math.round((g as any).convertFromPixel({ gridIndex: 0 }, [x, y])[0]);
       if (idx >= 0 && idx < props.klines.length) hoverIdx.value = idx;
     } catch { /* 忽略越界 */ }
-  });
-  // 点击买卖点标记 → 通知页面弹出成因详情
+  };
+  // 桌面鼠标 + 手机触摸统一处理
+  zr.on('mousemove', updateHover);
+  zr.on('touchstart', updateHover);
+  zr.on('touchmove', updateHover);
+  // 点击买卖点/量化标记 → 通知页面弹出详情
   g.on('click', (p: any) => {
     if ((p.seriesName === '买点' || p.seriesName === '卖点') && p.data) {
       const [/*idx*/, /*price*/, day, type] = p.data;
@@ -173,10 +180,8 @@ function bindHover() {
       uni.$emit('cl-quant', { day, price, dir });
     }
   });
-  // #ifdef H5
-  zr.on('mouseleave', () => { hoverIdx.value = -1; });
-  zr.on('dblclick', resetWindow); // 双击复位窗口
-  // #endif
+  zr.on('mouseout', () => { hoverIdx.value = -1; });
+  zr.on('dblclick', resetWindow);
 }
 
 /* ---- 边界提示：拖/翻到数据尽头时告知用户，避免"无声卡住" ---- */
