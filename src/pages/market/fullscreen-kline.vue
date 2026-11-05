@@ -130,8 +130,22 @@ const switchPeriod = (p: Period) => {
   period.value = p;
   load();
 };
-const goBack = () => uni.navigateBack();
-onUnload(() => { uni.$off('cl-quant', onQuantSig); });
+/** 离开横屏页时解除方向锁定与全屏，让主页恢复默认竖屏 */
+const restorePortrait = async () => {
+  try {
+    if (screen.orientation && screen.orientation.unlock) screen.orientation.unlock();
+    if (document.fullscreenElement && document.exitFullscreen) await document.exitFullscreen();
+  } catch { /* 浏览器不支持时忽略 */ }
+};
+const goBack = async () => {
+  await restorePortrait();
+  isLandscape.value = false;
+  uni.navigateBack();
+};
+onUnload(() => {
+  uni.$off('cl-quant', onQuantSig);
+  restorePortrait();
+});
 const toggleMode = async () => {
   try {
     if (!isLandscape.value) {
@@ -143,9 +157,9 @@ const toggleMode = async () => {
       }
       isLandscape.value = true;
     } else {
-      // 退出横屏
+      // 切回竖屏
       if (screen.orientation && screen.orientation.unlock) screen.orientation.unlock();
-      if (document.exitFullscreen) await document.exitFullscreen();
+      if (document.fullscreenElement && document.exitFullscreen) await document.exitFullscreen();
       isLandscape.value = false;
     }
   } catch {
@@ -171,6 +185,9 @@ onLoad((opts: any) => {
       }).catch(() => {});
     }
     isLandscape.value = true;
+  } else {
+    // 以竖屏模式进入时不请求横屏
+    isLandscape.value = false;
   }
   load();
 });
@@ -180,10 +197,10 @@ onLoad((opts: any) => {
 .page {
   display: flex;
   flex-direction: column;
-  height: 100vh;
-  height: 100dvh;
+  /* 不再锁死一屏：横屏视口很矮时允许页面滚动，避免图表被裁掉一半 */
+  min-height: 100vh;
+  min-height: 100dvh;
   background: #ffffff;
-  overflow: hidden;
   padding-top: env(safe-area-inset-top);
 }
 /* 横屏模式由 Fullscreen API + orientation lock 控制 */
@@ -248,7 +265,7 @@ onLoad((opts: any) => {
   border-bottom-color: #e74c3c;
 }
 .period-item.exit { color: #999999; }
-.chart-area { flex: 1; position: relative; min-height: 0; }
+.chart-area { flex: 1 0 auto; position: relative; min-height: 300px; }
 .chart-loading {
   position: absolute;
   top: 50%;

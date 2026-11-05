@@ -490,10 +490,10 @@ onShow(loadStats);
 <style scoped>
 .page {
   min-height: 100vh;
-  height: 100dvh;
   min-height: 100dvh;
   background-color: #f5f6fa;
-  padding: 10px 10px 20px;
+  /* 底部留出 tabBar 高度，最下面的文字不再被导航栏挡住 */
+  padding: 10px 10px 80px;
 }
 /* 导语 */
 .hero {

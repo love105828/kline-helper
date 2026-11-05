@@ -953,7 +953,6 @@ onMounted(load);
 /* ============ 页面：浅灰底卡片流（对照原站 page-container） ============ */
 .page-container {
   min-height: 100vh;
-  height: 100dvh;
   min-height: 100dvh;
   background-color: #f5f6fa;
   display: flex;
@@ -1056,6 +1055,7 @@ onMounted(load);
   margin-top: 10px;
   padding: 12px;
   display: flex;
+  flex-shrink: 0;
 }
 
 /* 卡片头：AI分析 + 控制按钮 */
@@ -1193,6 +1193,28 @@ onMounted(load);
 }
 .favorite-btn:active { background-color: #bae7ff; }
 .favorite-btn-text { color: #1890ff; font-weight: 500; font-size: 12px; }
+
+/* 手机窄屏：6 个开关 + 2 个按钮排成 4 列 × 2 行，避免开关挤成 3 行 */
+@media (max-width: 560px) {
+  .ma-favorite-row {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 4px;
+    align-items: stretch;
+  }
+  .ma-buttons, .right-btn-group { display: contents; }
+  .ma-btn {
+    margin: 0;
+    padding: 6px 2px;
+    justify-content: center;
+    gap: 4px;
+  }
+  .settings-btn, .favorite-btn {
+    margin: 0;
+    padding: 4px 2px;
+    text-align: center;
+  }
+}
 
 /* 图表 */
 .chart-wrapper {

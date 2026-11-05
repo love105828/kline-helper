@@ -18,6 +18,14 @@
     <!-- #ifdef MP-WEIXIN -->
     <MpEchart class="kline-el" :option="currentOption" @inited="onMpInited" />
     <!-- #endif -->
+    <!-- 触屏十字线：交点只在主图内，竖线向下贯穿 VOL / MACD 副图 -->
+    <view v-if="crosshair && crosshair.inGrid" class="touch-cross"
+          :style="{ left: crosshair.gx + 'px', top: crosshair.gy + 'px', width: crosshair.gw + 'px', height: crosshair.fullH + 'px' }">
+      <view class="cross-v" :style="{ left: crosshair.x + 'px' }" />
+      <view class="cross-h" :style="{ top: crosshair.y + 'px' }" />
+      <view class="cross-y-label" :style="{ top: (crosshair.y - 9) + 'px' }">{{ crosshair.price }}</view>
+      <view class="cross-x-label" :style="{ left: crosshair.x + 'px', top: (crosshair.gh + 2) + 'px' }">{{ crosshair.day }}</view>
+    </view>
   </view>
 </template>
 
@@ -86,6 +94,13 @@ const currentOption = ref<any>(null);
 
 /* 悬停信息栏：默认显示最新一根，鼠标/触摸移动时跟随 */
 const hoverIdx = ref(-1);
+/** 当前被 emphasize 高亮的 K 线柱索引（触屏用，桌面由 ECharts 自动管理） */
+let highlightIdx = -1;
+/** 触屏十字线（相对图表容器的像素坐标 + 对应数值），自绘覆盖层 */
+const crosshair = ref<{
+  x: number; y: number; gx: number; gy: number; gw: number; gh: number;
+  fullH: number; inGrid: boolean; price: string; day: string;
+} | null>(null);
 const hoverInfo = computed(() => {
   const ks = props.klines;
   if (!ks.length) return null;
@@ -129,6 +144,8 @@ function getInst(): echarts.ECharts | null {
 
 /** 组装并应用 option。keepZoom=true 保留当前缩放（开关切换），数据变化时重置默认窗口 */
 function applyOption(keepZoom = false) {
+  highlightIdx = -1;
+  crosshair.value = null;
   // 空数据时也应用空 option：复权/换标的清空阶段，图面变白让"刷新"肉眼可见
   if (!props.klines.length) {
     const g0 = getInst();
@@ -184,23 +201,151 @@ function bindHover() {
   zr.on('dblclick', resetWindow);
 }
 
-/** 手机触摸：不依赖 zrender 事件，直接在容器上监听原生触摸 */
+/** 主图 grid 的像素矩形（相对图表容器），十字线交点只在其中 */
+function getGridRect() {
+  try {
+    const cs = (chart as any)?.getModel?.().getComponent('grid', 0)?.coordinateSystem;
+    const r = cs?.getRect?.();
+    if (r && r.width > 0 && r.height > 0) return { x: r.x, y: r.y, w: r.width, h: r.height };
+  } catch { /* ignore */ }
+  try {
+    const dom = (chart as any)?.getDom?.();
+    if (dom && dom.clientWidth > 0) {
+      const W = dom.clientWidth, H = dom.clientHeight;
+      return { x: 45, y: H * 0.12, w: W - 60, h: H * 0.5 };
+    }
+  } catch { /* ignore */ }
+  return null;
+}
+
+/** 所有副图（VOL / MACD）最底部，竖线延伸到这里 */
+function getPlotBottom(fallback: number) {
+  try {
+    let b = 0;
+    (chart as any)?.getModel?.().eachComponent?.('grid', (gm: any) => {
+      const r = gm?.coordinateSystem?.getRect?.();
+      if (r && Number.isFinite(r.y) && Number.isFinite(r.height)) b = Math.max(b, r.y + r.height);
+    });
+    if (b > 0) return b;
+  } catch { /* ignore */ }
+  return fallback;
+}
+
+/** 触摸点 → 自绘十字线 + 当前 K 线柱高亮（桌面端仍由 ECharts 自身 mousemove 驱动） */
+function setHover(x: number, y: number) {
+  if (!chart) return;
+  let idx = -1;
+  let price = '';
+  try {
+    const p = (chart as any).convertFromPixel({ gridIndex: 0 }, [x, y]);
+    const v = Math.round(p[0]);
+    if (v >= 0 && v < props.klines.length) idx = v;
+    if (Number.isFinite(p[1])) price = String(Math.round(p[1] * 100) / 100);
+  } catch { /* ignore */ }
+  const g = getGridRect();
+  const gx = g?.x ?? 45, gy = g?.y ?? 0, gw = g?.w ?? 0, gh = g?.h ?? 0;
+  const domH = (chart as any)?.getDom?.()?.clientHeight ?? 0;
+  const plotBottom = getPlotBottom(Math.max(gy + gh, domH - 40));
+  const fullH = Math.max(gh, plotBottom - gy);
+  const rx = x - gx, ry = y - gy;
+  const inGrid = !!g && rx >= 0 && rx <= gw && ry >= 0 && ry <= gh;
+  crosshair.value = {
+    x: rx, y: ry, gx, gy, gw, gh, fullH, inGrid, price,
+    day: idx >= 0 ? String(props.klines[idx].day).slice(5) : '',
+  };
+  if (idx >= 0 && inGrid) {
+    hoverIdx.value = idx;
+    if (idx !== highlightIdx) {
+      if (highlightIdx >= 0) chart.dispatchAction({ type: 'downplay', seriesIndex: 0, dataIndex: highlightIdx });
+      chart.dispatchAction({ type: 'highlight', seriesIndex: 0, dataIndex: idx });
+      highlightIdx = idx;
+    }
+  }
+}
+
+/** 手机点选买卖点 / 量化信号：26px 容差，绕开 ECharts 小圆点难以命中的问题 */
+function hitSignal(x: number, y: number): boolean {
+  if (!chart) return false;
+  const idxOf = (day: string) => props.klines.findIndex((k) => k.day === day);
+  const near = (idx: number, price: number) => {
+    if (idx < 0) return false;
+    try {
+      const p = (chart as any).convertToPixel({ gridIndex: 0 }, [idx, price]);
+      return !!p && Math.hypot(p[0] - x, p[1] - y) <= 26;
+    } catch { return false; }
+  };
+  // 买卖点开关关闭时图上不画标记，也不允许点出详情
+  if (props.showMarkers) {
+    for (const mk of props.draw?.markers ?? []) {
+      if (near(idxOf(mk.day), mk.price)) { uni.$emit('cl-marker', mk); return true; }
+    }
+  }
+  for (const mk of props.quantMarks ?? []) {
+    if (near(idxOf(mk.day), mk.price)) {
+      uni.$emit('cl-quant', { day: mk.day, price: mk.price, dir: mk.dir });
+      return true;
+    }
+  }
+  return false;
+}
+
+/** 手机触摸：上下滑滚页面，水平跟随十字线+平移，底部滑块可拖，双指缩放 */
 function bindMobileTouch(el: HTMLElement) {
-  let lastX = 0, lastY = 0, lastDist = 0, touching = false;
+  let startX = 0, startY = 0, lastX = 0, lastDist = 0, touching = false;
+  let mode: 'pending' | 'inspect' | 'scroll' | 'slider' = 'pending';
+  let slider: { start: number; end: number; anchorX: number; part: 'left' | 'right' | 'move' } | null = null;
   const getPos = (t: Touch) => {
     const rect = el.getBoundingClientRect();
     return { x: t.clientX - rect.left, y: t.clientY - rect.top };
   };
+  // 底部 dataZoom 滑块：bottom:10 / height:30 → [H-40, H-10]，上下各放宽 6px
+  const inSliderBand = (y: number) => y >= el.clientHeight - 46 && y <= el.clientHeight - 4;
+  const pctAt = (x: number) => {
+    const x0 = 45, x1 = Math.max(x0 + 1, el.clientWidth - 15);
+    return Math.max(0, Math.min(100, ((x - x0) / (x1 - x0)) * 100));
+  };
+  const beginSlider = (x: number) => {
+    try {
+      const all = (chart as any)?.getOption().dataZoom ?? [];
+      const dz = all[1] ?? all[0];
+      if (!dz) return false;
+      const pct = pctAt(x), tol = 9;
+      let part: 'left' | 'right' | 'move' = 'move';
+      if (Math.abs(pct - dz.start) < tol) part = 'left';
+      else if (Math.abs(pct - dz.end) < tol) part = 'right';
+      else if (pct > dz.start && pct < dz.end) part = 'move';
+      else part = pct < dz.start ? 'left' : 'right';
+      slider = { start: dz.start, end: dz.end, anchorX: x, part };
+      return true;
+    } catch { return false; }
+  };
+  const moveSlider = (x: number) => {
+    if (!slider || !chart) return;
+    const delta = pctAt(x) - pctAt(slider.anchorX);
+    let s = slider.start, e = slider.end;
+    if (slider.part === 'left') s = Math.max(0, Math.min(e - 2, s + delta));
+    else if (slider.part === 'right') e = Math.min(100, Math.max(s + 2, e + delta));
+    else {
+      const span = e - s;
+      s = Math.max(0, Math.min(100 - span, s + delta));
+      e = s + span;
+    }
+    chart.dispatchAction({ type: 'dataZoom', start: s, end: e });
+  };
   el.addEventListener('touchstart', (ev: TouchEvent) => {
     if (ev.touches.length === 1) {
-      touching = true;
       const p = getPos(ev.touches[0]);
-      lastX = p.x; lastY = p.y;
-      // 显示十字光标
-      try {
-        const idx = Math.round((chart as any).convertFromPixel({ gridIndex: 0 }, [p.x, p.y])[0]);
-        if (idx >= 0 && idx < props.klines.length) hoverIdx.value = idx;
-      } catch { /* ignore */ }
+      if (inSliderBand(p.y)) {
+        mode = 'slider';
+        if (!beginSlider(p.x)) mode = 'pending';
+        touching = mode === 'slider';
+        return;
+      }
+      if (hitSignal(p.x, p.y)) { touching = false; return; }
+      touching = true;
+      mode = 'pending';
+      startX = p.x; startY = p.y; lastX = p.x;
+      setHover(p.x, p.y);
     } else if (ev.touches.length === 2) {
       const dx = ev.touches[0].clientX - ev.touches[1].clientX;
       const dy = ev.touches[0].clientY - ev.touches[1].clientY;
@@ -210,19 +355,20 @@ function bindMobileTouch(el: HTMLElement) {
   el.addEventListener('touchmove', (ev: TouchEvent) => {
     if (ev.touches.length === 1 && touching) {
       const p = getPos(ev.touches[0]);
-      // 更新十字光标
-      try {
-        const idx = Math.round((chart as any).convertFromPixel({ gridIndex: 0 }, [p.x, p.y])[0]);
-        if (idx >= 0 && idx < props.klines.length) hoverIdx.value = idx;
-      } catch { /* ignore */ }
-      // 单指平移
-      const dx = p.x - lastX;
-      if (Math.abs(dx) > 2) {
-        panByPixels(dx);
+      if (mode === 'slider') { moveSlider(p.x); return; }
+      const dx = Math.abs(p.x - startX);
+      const dy = Math.abs(p.y - startY);
+      if (mode === 'pending' && (dx > 6 || dy > 6)) {
+        mode = dy > dx * 1.2 ? 'scroll' : 'inspect';
+      }
+      if (mode === 'scroll') return;
+      setHover(p.x, p.y);
+      const dpx = p.x - lastX;
+      if (Math.abs(dpx) > 2) {
+        panByPixels(dpx);
         lastX = p.x;
       }
     } else if (ev.touches.length === 2) {
-      // 双指缩放
       const dx = ev.touches[0].clientX - ev.touches[1].clientX;
       const dy = ev.touches[0].clientY - ev.touches[1].clientY;
       const dist = Math.sqrt(dx * dx + dy * dy);
@@ -232,10 +378,9 @@ function bindMobileTouch(el: HTMLElement) {
       }
     }
   }, { passive: true });
-  el.addEventListener('touchend', () => {
-    touching = false;
-    lastDist = 0;
-  });
+  const end = () => { touching = false; lastDist = 0; slider = null; };
+  el.addEventListener('touchend', end);
+  el.addEventListener('touchcancel', end);
 }
 
 function zoomByPinch(ratio: number) {
@@ -416,11 +561,11 @@ defineExpose({ resize, zoomIn, zoomOut, panLeft, panRight, resetWindow });
 </script>
 
 <style scoped>
-/* 只在图表和画布上禁止浏览器默认触摸（让 ECharts 接管） */
+/* 垂直方向交还浏览器滚动页面；水平方向由 JS 处理十字线 */
 /* 外层 .kline-wrap 不设，保持页面可以滚动 */
 .kline-el,
 .kline-el canvas {
-  touch-action: none;
+  touch-action: pan-y;
 }
 .kline-wrap {
   width: 100%;
@@ -457,4 +602,35 @@ defineExpose({ resize, zoomIn, zoomOut, panLeft, panRight, resetWindow });
 .ohlc-vol { color: #999; }
 .ohlc-macd { color: #9c27b0; }
 .ohlc-ma { color: #1e90ff; }
+
+/* 触屏自绘十字线：DOM 覆盖层，跟随手指，不受 ECharts 重绘影响 */
+.touch-cross {
+  /* 尺寸由 setHover 按主图 grid 矩形动态给出，十字线不会延伸到副图与滑块区 */
+  position: absolute;
+  pointer-events: none;
+  z-index: 15;
+}
+.cross-v {
+  position: absolute;
+  top: 0; bottom: 0; width: 0;
+  border-left: 1px dashed #8a94a6;
+}
+.cross-h {
+  position: absolute;
+  left: 0; right: 0; height: 0;
+  border-top: 1px dashed #8a94a6;
+}
+.cross-y-label,
+.cross-x-label {
+  position: absolute;
+  background: #e9ecef;
+  color: #495057;
+  font-size: 10px;
+  line-height: 18px;
+  padding: 0 4px;
+  border-radius: 3px;
+  white-space: nowrap;
+}
+.cross-y-label { left: 0; }
+.cross-x-label { transform: translateX(-50%); }
 </style>

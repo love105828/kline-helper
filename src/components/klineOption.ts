@@ -150,9 +150,10 @@ export function buildOption(
     encode: { x: [0, 1], y: [2, 3] }, xAxisIndex: 0, yAxisIndex: 0,
   });
 
+  // 主图顶部留出空间给 OHLC 信息栏，避免文字压住高位 K 线
   const grids: any[] = t.showVol && t.showMacd
-    ? [{ left: 45, right: 15, top: '4%', height: '45%' }, { left: 45, right: 15, top: '57%', height: '13%' }, { left: 45, right: 15, top: '76%', height: '11%' }]
-    : [{ left: 45, right: 15, top: '5%', height: '57%' }, { left: 45, right: 15, top: '73%', height: '16%' }];
+    ? [{ left: 45, right: 15, top: '11%', height: '38%' }, { left: 45, right: 15, top: '57%', height: '13%' }, { left: 45, right: 15, top: '76%', height: '11%' }]
+    : [{ left: 45, right: 15, top: '12%', height: '50%' }, { left: 45, right: 15, top: '73%', height: '16%' }];
 
   const series: any[] = [
     {
@@ -160,6 +161,14 @@ export function buildOption(
       itemStyle: {
         color: C.up, color0: C.down,
         borderColor: C.up, borderColor0: C.down, borderWidth: 1,
+      },
+      // 悬停/触摸时当前柱加粗并带阴影，桌面与手机端共用
+      emphasis: {
+        itemStyle: {
+          borderWidth: 3,
+          shadowBlur: 10,
+          shadowColor: 'rgba(0,0,0,0.45)',
+        },
       },
       // 现价横虚线已按需求移除
 
@@ -219,8 +228,8 @@ export function buildOption(
       list.map((mk) => { const idx = m.get(mk.day); return idx === undefined ? null : [idx, mk.price, mk.day, mk.type, mk.label]; }).filter(Boolean);
     const mkSeries = (data: any[], color: string, position: string, name: string) => ({
       name, type: 'scatter', xAxisIndex: 0, yAxisIndex: 0, z: 10,
-      symbolSize: 9, cursor: 'pointer',
-      emphasis: { scale: 1.6 },
+      symbolSize: 14, cursor: 'pointer',
+      emphasis: { scale: 1.5 },
       itemStyle: { color },
       label: {
         show: true, position, fontSize: 9,
@@ -270,8 +279,8 @@ export function buildOption(
   if (t.quantMarks?.length) {
     series.push({
       name: '量化信号', type: 'scatter', xAxisIndex: 0, yAxisIndex: 0, z: 12,
-      symbol: 'diamond', symbolSize: 9, cursor: 'pointer',
-      emphasis: { scale: 1.6 },
+      symbol: 'diamond', symbolSize: 14, cursor: 'pointer',
+      emphasis: { scale: 1.5 },
       itemStyle: { color: (p: any) => (String(p.data[2]) === 'B' ? '#8e44ad' : '#ff9800') },
       data: t.quantMarks
         .map((mk) => { const idx = mapSignalIndex(mk.day, klines); return idx < 0 ? null : [idx, mk.price, mk.dir]; })
@@ -331,9 +340,10 @@ export function buildOption(
       {
         type: 'slider', xAxisIndex: xAxis.map((_, i) => i), start: zoom.start ?? startPct, end: zoom.end ?? 100,
         // 底部预留标签空间：滑条下缘的时间范围文字不再被裁切
-        bottom: 12, height: 22, borderColor: '#e9ecef', backgroundColor: '#fafbfc',
+        // 加高滑块与手柄，便于手指拖动；触屏拖动逻辑在 KLineChart 里接管
+        bottom: 10, height: 30, borderColor: '#e9ecef', backgroundColor: '#fafbfc',
         fillerColor: 'rgba(24,144,255,0.14)',
-        handleIcon: 'path://M-4,0L4,0 M0,-4L0,4', handleSize: '60%',
+        handleIcon: 'path://M-4,0L4,0 M0,-4L0,4', handleSize: '100%',
         handleStyle: { color: '#fff', borderColor: '#adb5bd' },
         labelFormatter: (v: number, val: string) => (val || '').slice(5), // 只显示 月-日，去掉年份前缀
         textStyle: { color: '#adb5bd', fontSize: 9 },
